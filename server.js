@@ -12,7 +12,13 @@ server.on('error', (err) => {
 
 server.on('message', (msg, rinfo) => {
     if(msg != 'done'){
-        fileArray += msg
+        fileArray += msg.toString().split('%%%%%')[1];
+        ack = Buffer.from((parseInt(msg.toString().split('%%%%%')[0]) + msg.toString().split('%%%%%')[1].length).toString(), 'utf8');
+        
+        server.send(ack, 0, ack.length, 30003, HOST, (err, bytes) => {
+            if (err) throw err;
+            console.log((parseInt(msg.toString().split('%%%%%')[0]) + msg.toString().split('%%%%%')[1].length).toString())
+        });
     }else{ 
         showResults()
     }
@@ -24,12 +30,12 @@ server.on('listening', () => {
 });
 
 function showResults () {
-    fs.writeFileSync(`./result-${Date.now()}`, `${fileArray}`);
+    fs.writeFileSync(`./result-${Date.now()}.txt`, `${fileArray}`);
     console.log('done');
 }
 
 server.bind({
     address: HOST,
     port: PORT,
-    exclusive: true
+    exclusive: false
 });

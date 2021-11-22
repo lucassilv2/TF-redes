@@ -1,6 +1,7 @@
 const dgram = require('dgram');
+const fs = require('fs');
 const server = dgram.createSocket('udp4');
-
+let fileArray = ''
 const HOST = '0.0.0.0';
 const PORT = 30000;
 
@@ -10,13 +11,22 @@ server.on('error', (err) => {
 });
 
 server.on('message', (msg, rinfo) => {
-    console.log(`server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
+    if(msg != 'done'){
+        fileArray += msg
+    }else{ 
+        showResults()
+    }
 });
 
 server.on('listening', () => {
     const address = server.address();
     console.log(`server listening ${address.address}:${address.port}`);
 });
+
+function showResults () {
+    fs.writeFileSync(`./result-${Date.now()}`, `${fileArray}`);
+    console.log('done');
+}
 
 server.bind({
     address: HOST,

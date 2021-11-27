@@ -5,12 +5,15 @@ const data = fs.readFileSync('./10000bytes.txt');
 const package = data.length/100;
 let packageAtual = 0
 let numGlobal = 0;
+let mapAckMsg = new Map(); 
 let ack;
+let lastSucessAck;
 let ackList = [];
 let startTime;
+let contFail = 0;
 let map = new Map();
 map.set('slow', 1);
-map.set('cong', 5);
+map.set('cong', 9);
 const HOST = '0.0.0.0';
 const PORT = 30000;
 require('events').EventEmitter.defaultMaxListeners = 20;
@@ -29,24 +32,30 @@ client.on('listening', () => {
 configureSend();
 function configureSend() {
     if (packageAtual < package) {
-        if (map.get('slow') <= 4) {
+        if (map.get('slow') <= 8) {
             sendPackage(map.get('slow'));
-            console.log(`Em slow start enviando ${map.get('slow')}`);
-            map.set('slow', map.get('slow') + 1);
+            console.log(`Em Slow Start enviando ${map.get('slow')}`);
+            map.set('slow', map.get('slow') * 2);
         } else {
             sendPackage(map.get('cong'));
-            console.log(`Em cong enviando ${map.get('cong')}`);
+            console.log(`Em Congestion Avoidance enviando ${map.get('cong')}`);
             map.set('cong', map.get('cong') + 1);
         }
         sleep.msleep(40);
         startTime = new Date();
+        sleep.msleep(500);
     } else {
         let done = Buffer.from('done', 'utf8');
         client.send(done, 0, done.length, PORT, HOST, function (err, bytes) {
             client.close();
         });
     }
-
+    if(-1*(startTime - new Date()) > (numGlobal*10000)) {
+        console.log('timeout');
+        packageAtual = packageAtual - numGlobal;
+        map.set('slow', 1);
+        configureSend()
+    }
 }
 function sendPackage(numMensagens) {
     numGlobal = numMensagens;
@@ -67,17 +76,32 @@ function sendPackage(numMensagens) {
                 packageAtual++;
                 numSequence++;
             }
+            
             ackList.push(ack);
             console.log(`Enviando pacote ${packageAtual-1} de ack ${ack}`);
             let msg = Buffer.concat([msgSeq, message], msgSeq.length + message.length);
-            sendAndWait(msg, 0);
+            mapAckMsg.set(ack.toString(), msg);
+            sendAndWait(msg, 0, ack);
         }
     }
 }
-function sendAndWait(msg, init) {
-    client.send(msg, init, msg.length, PORT, HOST, function (err, bytes) {
-        if (err) throw err;
-    });
+function sendAndWait(msg, init, ack) {
+    try {
+        client.send(msg, init, msg.length, PORT, HOST, function (err, bytes) { });
+        lastSucessAck = ack;
+        contFail = 0;
+    } catch (error) {
+        contFail++;
+        if (contFail > 3) {
+            fastRetrasmition();
+        }
+        console.log(error);
+    }
+}
+
+function fastRetrasmition() {
+    let msg = mapAckMsg.get(lastSucessAck.toString());
+    sendAndWait(msg, 0, lastSucessAck);
 }
 
 client.on('message', (msg, rinfo) => {
@@ -89,11 +113,12 @@ client.on('message', (msg, rinfo) => {
     if (ackList.length === 0) {
         configureSend()
     } else if(-1*(startTime - new Date()) > (numGlobal*10000)) {
-        console.log('Ta demorando')
+        console.log('timeout');
+        packageAtual = packageAtual - numGlobal;
+        map.set('slow', 1);
+        configureSend()
     }
 });
-
-
 
 
 

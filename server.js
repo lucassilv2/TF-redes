@@ -3,6 +3,7 @@ var sleep = require('sleep');
 const fs = require('fs');
 const server = dgram.createSocket('udp4');
 let fileArray = ''
+let ackList = [];
 const HOST = '0.0.0.0';
 const PORT = 30000;
 
@@ -13,8 +14,11 @@ server.on('error', (err) => {
 
 server.on('message', (msg, rinfo) => {
     if(msg != 'done'){
-        fileArray += msg.toString().split('%%%%%')[1];
         ack = Buffer.from((parseInt(msg.toString().split('%%%%%')[0]) + msg.toString().split('%%%%%')[1].length).toString(), 'utf8');
+        if(!ackList.includes(parseInt(ack.toString()))){
+            fileArray += msg.toString().split('%%%%%')[1];
+            ackList.push(parseInt(ack.toString()));
+        }
         
         server.send(ack, 0, ack.length, 30003, HOST, (err, bytes) => {
             if (err) throw err;

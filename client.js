@@ -1,7 +1,7 @@
 const dgram = require('dgram');
 const fs = require('fs');
 const sleep  = require('sleep');
-const data = fs.readFileSync('./10000bytes.txt');
+const data = fs.readFileSync('./1000b');
 const package = data.length/100;
 let packageAtual = 0
 let numGlobal = 0;
@@ -106,10 +106,7 @@ function fastRetrasmition() {
 
 client.on('message', (msg, rinfo) => {
     let forDeletion = [parseInt(msg.toString())]
-    //console.log('a remover ', msg);
-    //console.log('antes ',ackList)
-    ackList = ackList.filter(item => !forDeletion.includes(item))
-    //console.log('depois ',ackList)
+    ackList = ackList.filter(item => !forDeletion.includes(item));
     if (ackList.length === 0) {
         configureSend()
     } else if(-1*(startTime - new Date()) > (numGlobal*10000)) {
@@ -120,5 +117,12 @@ client.on('message', (msg, rinfo) => {
     }
 });
 
-
-
+if (packageAtual != package) {
+    console.log('timeout');
+    packageAtual = packageAtual - numGlobal;
+    map.set('slow', 1);
+    configureSend()
+} else if (packageAtual == package) {
+    client.close();
+}
+    

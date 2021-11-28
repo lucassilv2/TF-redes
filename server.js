@@ -37,6 +37,7 @@ server.on('listening', () => {
 function showResults () {
     fs.writeFileSync(`./result-${Date.now()}.txt`, `${fileArray}`);
     console.log('done');
+    server.close();
 }
 
 server.bind({
